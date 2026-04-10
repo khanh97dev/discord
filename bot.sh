@@ -4,9 +4,8 @@ set -e
 
 echo "🚀 Starting Discord bot..."
 
-# ===== CONFIG =====
-# Token đã được mã hóa Base64
-B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
+# Đưa token vào môi trường để Python có thể đọc qua os.environ
+export B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
 
 PYTHON_BIN=$(which python3 || which python)
 
@@ -16,10 +15,12 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo "📦 Installing dependencies..."
-$PYTHON_BIN -m pip install --quiet discord requests
+$PYTHON_BIN -m pip install --quiet discord.py requests
 
 echo "▶️ Running bot..."
 
+# Sử dụng <<EOF (không nháy đơn) để Bash có thể xử lý các biến nếu cần, 
+# nhưng ở đây ta dùng os.environ cho an toàn.
 $PYTHON_BIN <<EOF
 import discord
 import os
@@ -27,10 +28,14 @@ import base64
 import subprocess
 import asyncio
 
-# Giải mã token từ Base64
-encoded_token = "$B64_TOKEN"
-TOKEN = base64.b64decode(encoded_token).decode('utf-8')
-print(f'Token: {TOKEN}')
+# Lấy token từ biến môi trường
+encoded_token = os.environ.get("B64_TOKEN", "")
+try:
+    TOKEN = base64.b64decode(encoded_token).decode('utf-8')
+except Exception as e:
+    print(f"❌ Lỗi giải mã Token: {e}")
+    exit(1)
+
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -49,38 +54,30 @@ async def on_message(message):
         await message.channel.send(f'Pong! {message.author.mention}')
 
     if client.user.mentioned_in(message):
-        # Lấy toàn bộ nội dung sau khi bỏ mention
         cmd = message.content.replace(f"<@{client.user.id}>", "").strip()
         if not cmd:
             await message.channel.send("❌ Bạn chưa nhập lệnh.")
             return
 
-        await message.channel.send(f"▶️ Thực thi: `{cmd}`")
+        await message.channel.send(f"▶️ Thực thi: \`{cmd}\`")
 
         try:
-            process = subprocess.Popen(
-                cmd, shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+            # Sử dụng asyncio để tránh block bot khi chạy lệnh terminal
+            process = await asyncio.create_subprocess_shell(
+                cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
             )
 
-            # Đọc output liên tục
-            while True:
-                line = process.stdout.readline()
-                if not line:
-                    await asyncio.sleep(1)
-                    continue
-                await message.channel.send(line.strip())
+            stdout, stderr = await process.communicate()
+            
+            if stdout:
+                await message.channel.send(f"\`\`\`\n{stdout.decode()[:1900]}\n\`\`\`")
+            if stderr:
+                await message.channel.send(f"❌ Lỗi: \`\`\`\n{stderr.decode()[:1900]}\n\`\`\`")
 
         except Exception as e:
-            await message.channel.send(f"❌ Lỗi: {e}")
-
-        except Exception as e:
-            await message.channel.send(f"❌ Lỗi: {e}")
-
-    if message.content.startswith('!check'):
-        await message.channel.send('Đang check...')
+            await message.channel.send(f"❌ Lỗi hệ thống: {e}")
 
 client.run(TOKEN)
 EOF
