@@ -3,10 +3,9 @@
 set -e
 
 # --- CONFIG ---
-VERSION="1.0.5"
-DEFAULT_NAME="theserver"
+VERSION="1.0.6"
+DEFAULT_NAME="server01"
 
-# Tách NAME từ tham số URL nếu chạy kiểu bash -c "$(curl ... ?NAME=myserver)"
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
 
 if [ -n "$URL_PARAM" ]; then
@@ -36,7 +35,6 @@ $PYTHON_BIN -m pip install --quiet discord.py requests
 
 echo "▶️ Running bot..."
 
-# SỬA LỖI TẠI ĐÂY: Dùng 'EOF' để tránh lỗi syntax bash
 $PYTHON_BIN << 'EOF'
 import discord
 import os
@@ -46,7 +44,7 @@ import re
 
 token_env = os.environ.get("B64_TOKEN", "")
 bot_name = os.environ.get("BOT_NAME", "server01")
-version = "1.0.5"
+version = "1.0.6"
 TIMEOUT_SECONDS = 30 
 
 try:
@@ -59,12 +57,24 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+def format_output(name, title, text):
+    if not text: return ""
+    # Giới hạn 1800 ký tự để chừa chỗ cho prefix/suffix
+    max_len = 1800
+    is_truncated = len(text) > max_len
+    content = text[:max_len]
+    
+    msg = f"**[{name}] {title}:**\n```\n{content}"
+    if is_truncated:
+        msg += "\n... (truncated)"
+    msg += "\n```" # Luôn đảm bảo đóng code block
+    return msg
+
 @client.event
 async def on_ready():
     print(f'--- INFO ---')
     print(f'Version: {version}')
     print(f'Server Name: {bot_name}')
-    print(f'Bot User: {client.user}')
     print(f'------------')
 
 @client.event
@@ -73,22 +83,15 @@ async def on_message(message):
         return
 
     if client.user.mentioned_in(message):
-        # Loại bỏ các tag mention
         clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
         
-        # Kiểm tra đúng tên server mới chạy
         if not clean_content.startswith(bot_name):
             return
 
-        # Tách lệnh
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
-            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} ready. Gõ: `@Bot {bot_name} <lệnh>`")
-            return
-
-        if cmd == "version":
-            await message.channel.send(f"🤖 **[{bot_name}]** Phiên bản hiện tại: \`{version}\`")
+            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} ready.")
             return
 
         await message.channel.send(f"⏳ **[{bot_name}]** Thực thi: \`{cmd}\`")
@@ -103,22 +106,21 @@ async def on_message(message):
             try:
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
                 
-                if stdout:
-                    out = stdout.decode().strip()
-                    if out: await message.channel.send(f"**[{bot_name}]**:\n\`\`\`\n{out[:1900]}\n\`\`\`")
-                if stderr:
-                    err = stderr.decode().strip()
-                    if err: await message.channel.send(f"❌ **[{bot_name}] Lỗi:**\n\`\`\`\n{err[:1900]}\n\`\`\`")
+                out_msg = format_output(bot_name, "STDOUT", stdout.decode().strip())
+                err_msg = format_output(bot_name, "ERR", stderr.decode().strip())
+
+                if out_msg: await message.channel.send(out_msg)
+                if err_msg: await message.channel.send(err_msg)
                 
             except asyncio.TimeoutError:
                 try:
                     process.terminate()
                 except:
                     pass
-                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị dừng (Timeout {TIMEOUT_SECONDS}s).")
+                await message.channel.send(f"🛑 **[{bot_name}]** Timeout ({TIMEOUT_SECONDS}s).")
 
         except Exception as e:
-            await message.channel.send(f"❌ **[{bot_name}]** Lỗi hệ thống: {e}")
+            await message.channel.send(f"❌ **[{bot_name}]** Lỗi: {e}")
 
 client.run(TOKEN)
 EOF
