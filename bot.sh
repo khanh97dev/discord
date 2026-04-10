@@ -2,7 +2,11 @@
 
 set -e
 
-export BOT_NAME="${NAME:-server01}"
+if [ -z "$NAME" ]; then
+  export BOT_NAME="server01"
+else
+  export BOT_NAME="$NAME"
+fi
 
 echo "🚀 Starting Discord bot: $BOT_NAME..."
 
