@@ -32,7 +32,7 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo "📦 Installing dependencies..."
-$PYTHON_BIN -m pip install --quiet discord.py requests
+$PYTHON_BIN -m pip install --quiet discord.py requests --break-system-packages
 
 echo "▶️ Running bot..."
 
