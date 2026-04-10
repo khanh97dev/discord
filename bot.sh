@@ -2,9 +2,10 @@
 
 set -e
 
-echo "🚀 Starting Discord bot..."
+export BOT_NAME="${NAME:-server01}"
 
-# Đưa token vào môi trường để Python có thể đọc qua os.environ
+echo "🚀 Starting Discord bot: $BOT_NAME..."
+
 export B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
 
 PYTHON_BIN=$(which python3 || which python)
@@ -19,65 +20,70 @@ $PYTHON_BIN -m pip install --quiet discord.py requests
 
 echo "▶️ Running bot..."
 
-# Sử dụng <<EOF (không nháy đơn) để Bash có thể xử lý các biến nếu cần, 
-# nhưng ở đây ta dùng os.environ cho an toàn.
 $PYTHON_BIN <<EOF
 import discord
 import os
 import base64
-import subprocess
 import asyncio
 
-# Lấy token từ biến môi trường
-encoded_token = os.environ.get("B64_TOKEN", "")
+token_env = os.environ.get("B64_TOKEN", "")
+bot_name = os.environ.get("BOT_NAME", "server01")
+TIMEOUT_SECONDS = 30 
+
 try:
-    TOKEN = base64.b64decode(encoded_token).decode('utf-8')
+    TOKEN = base64.b64decode(token_env).decode('utf-8')
 except Exception as e:
     print(f"❌ Lỗi giải mã Token: {e}")
     exit(1)
 
 intents = discord.Intents.default()
 intents.message_content = True
-
 client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'Bot {client.user} đã sẵn sàng!')
+    print(f'[{bot_name}] Bot {client.user} đã sẵn sàng!')
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    if message.content.startswith('!ping'):
-        await message.channel.send(f'Pong! {message.author.mention}')
-
     if client.user.mentioned_in(message):
-        cmd = message.content.replace(f"<@{client.user.id}>", "").strip()
-        if not cmd:
-            await message.channel.send("❌ Bạn chưa nhập lệnh.")
+        raw_content = message.content.replace(f"<@{client.user.id}>", "").strip()
+        
+        if not raw_content.startswith(bot_name):
             return
 
-        await message.channel.send(f"▶️ Thực thi: \`{cmd}\`")
+        cmd = raw_content[len(bot_name):].strip()
+        
+        if not cmd:
+            await message.channel.send(f"❌ **[{bot_name}]** Thiếu lệnh (Ví dụ: @Bot {bot_name} ls)")
+            return
+
+        await message.channel.send(f"⏳ **[{bot_name}]** Đang thực thi: \`{cmd}\` (Timeout: {TIMEOUT_SECONDS}s)")
 
         try:
-            # Sử dụng asyncio để tránh block bot khi chạy lệnh terminal
             process = await asyncio.create_subprocess_shell(
                 cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
 
-            stdout, stderr = await process.communicate()
-            
-            if stdout:
-                await message.channel.send(f"\`\`\`\n{stdout.decode()[:1900]}\n\`\`\`")
-            if stderr:
-                await message.channel.send(f"❌ Lỗi: \`\`\`\n{stderr.decode()[:1900]}\n\`\`\`")
+            try:
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
+                
+                if stdout:
+                    await message.channel.send(f"**[{bot_name}] STDOUT:**\n\`\`\`\n{stdout.decode()[:1900]}\n\`\`\`")
+                if stderr:
+                    await message.channel.send(f"❌ **[{bot_name}] ERR:**\n\`\`\`\n{stderr.decode()[:1900]}\n\`\`\`")
+                
+            except asyncio.TimeoutError:
+                process.terminate()
+                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị hủy vì chạy quá {TIMEOUT_SECONDS}s.")
 
         except Exception as e:
-            await message.channel.send(f"❌ Lỗi hệ thống: {e}")
+            await message.channel.send(f"❌ **[{bot_name}]** Lỗi hệ thống: {e}")
 
 client.run(TOKEN)
 EOF
