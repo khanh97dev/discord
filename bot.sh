@@ -2,14 +2,19 @@
 
 set -e
 
-if [ -z "$NAME" ]; then
-  export BOT_NAME="server01"
-else
-  export BOT_NAME="$NAME"
-fi
+# --- CONFIG ---
+VERSION="1.0.4"
+DEFAULT_NAME="server01"
 
-echo "🚀 Starting Discord bot: $BOT_NAME..."
+# Đảm bảo lấy NAME từ môi trường
+[ -z "$NAME" ] && BOT_NAME=$DEFAULT_NAME || BOT_NAME=$NAME
 
+echo "------------------------------------------"
+echo "🚀 Discord Bot Version: $VERSION"
+echo "🖥️  Target Server: $BOT_NAME"
+echo "------------------------------------------"
+
+export BOT_NAME
 export B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
 
 PYTHON_BIN=$(which python3 || which python)
@@ -29,9 +34,11 @@ import discord
 import os
 import base64
 import asyncio
+import re
 
 token_env = os.environ.get("B64_TOKEN", "")
-bot_name = os.environ.get("BOT_NAME", "server01")
+bot_name = os.environ.get("BOT_NAME", "$DEFAULT_NAME")
+version = "$VERSION"
 TIMEOUT_SECONDS = 30 
 
 try:
@@ -46,7 +53,11 @@ client = discord.Client(intents=intents)
 
 @client.event
 async def on_ready():
-    print(f'[{bot_name}] Bot {client.user} đã sẵn sàng!')
+    print(f'--- INFO ---')
+    print(f'Version: {version}')
+    print(f'Server Name: {bot_name}')
+    print(f'Bot User: {client.user}')
+    print(f'------------')
 
 @client.event
 async def on_message(message):
@@ -54,18 +65,25 @@ async def on_message(message):
         return
 
     if client.user.mentioned_in(message):
-        raw_content = message.content.replace(f"<@{client.user.id}>", "").strip()
+        # Regex để xóa sạch phần @mention bất kể định dạng <@ID>, <@!ID>, <@&ID>
+        clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
         
-        if not raw_content.startswith(bot_name):
+        # Kiểm tra xem có bắt đầu bằng đúng bot_name không
+        if not clean_content.startswith(bot_name):
             return
 
-        cmd = raw_content[len(bot_name):].strip()
+        # Tách lệnh (Ví dụ: "myserver ls" -> "ls")
+        cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
-            await message.channel.send(f"❌ **[{bot_name}]** Thiếu lệnh (Ví dụ: @Bot {bot_name} ls)")
+            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} sẵn sàng. Nhập: `@Bot {bot_name} <lệnh>`")
             return
 
-        await message.channel.send(f"⏳ **[{bot_name}]** Đang thực thi: \`{cmd}\` (Timeout: {TIMEOUT_SECONDS}s)")
+        if cmd == "version":
+            await message.channel.send(f"🤖 **[{bot_name}]** đang chạy phiên bản: \`{version}\`")
+            return
+
+        await message.channel.send(f"⏳ **[{bot_name}]** Thực thi: \`{cmd}\`")
 
         try:
             process = await asyncio.create_subprocess_shell(
@@ -83,11 +101,14 @@ async def on_message(message):
                     await message.channel.send(f"❌ **[{bot_name}] ERR:**\n\`\`\`\n{stderr.decode()[:1900]}\n\`\`\`")
                 
             except asyncio.TimeoutError:
-                process.terminate()
-                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị hủy vì chạy quá {TIMEOUT_SECONDS}s.")
+                try:
+                    process.terminate()
+                except:
+                    pass
+                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị hủy (Quá {TIMEOUT_SECONDS}s).")
 
         except Exception as e:
-            await message.channel.send(f"❌ **[{bot_name}]** Lỗi hệ thống: {e}")
+            await message.channel.send(f"❌ **[{bot_name}]** Lỗi: {e}")
 
 client.run(TOKEN)
 EOF
