@@ -4,7 +4,7 @@ set -e
 
 # --- CONFIG ---
 VERSION="1.0.5"
-DEFAULT_NAME="server01"
+DEFAULT_NAME="theserver"
 
 # Tách NAME từ tham số URL nếu chạy kiểu bash -c "$(curl ... ?NAME=myserver)"
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
