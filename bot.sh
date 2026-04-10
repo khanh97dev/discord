@@ -3,7 +3,7 @@
 set -e
 
 # --- CONFIG ---
-VERSION="1.0.7"
+VERSION="1.0.8"
 DEFAULT_NAME="server01"
 
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
@@ -130,6 +130,7 @@ async def on_message(message):
             return
 
         # Phản hồi ngay lập tức và đưa vào hàng đợi
+        print(f"📥 Received command: {cmd}")
         await message.channel.send(f"⏳ [{bot_name}] Đã nhận lệnh: `{cmd}`")
         await msg_queue.put((message, cmd))
 
