@@ -126,11 +126,11 @@ async def on_message(message):
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
-            await message.channel.send(f"ℹ️ [{bot_name}] v{version} ready.")
+            await message.channel.send(f"[{bot_name}] v{version} ready.")
             return
 
         # Phản hồi ngay lập tức và đưa vào hàng đợi
-        print(f"📥 Received command: {cmd}")
+        print(f"Received command: {cmd}")
         await message.channel.send(f"[{bot_name}] Đã nhận lệnh: `{cmd}`")
         await msg_queue.put((message, cmd))
 
