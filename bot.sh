@@ -49,7 +49,7 @@ async def on_message(message):
         await message.channel.send(f'Pong! {message.author.mention}')
 
     if client.user.mentioned_in(message):
-        # Bỏ phần mention để lấy câu lệnh thực sự
+        # Lấy toàn bộ nội dung sau khi bỏ mention
         cmd = message.content.replace(f"<@{client.user.id}>", "").strip()
         if not cmd:
             await message.channel.send("❌ Bạn chưa nhập lệnh.")
@@ -58,8 +58,13 @@ async def on_message(message):
         await message.channel.send(f"▶️ Thực thi: `{cmd}`")
 
         try:
-            # Mở process
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Chạy lệnh thực sự, không có {cmd}
+            process = subprocess.Popen(
+                cmd, shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
 
             # Đọc output liên tục
             while True:
@@ -68,6 +73,9 @@ async def on_message(message):
                     await asyncio.sleep(1)
                     continue
                 await message.channel.send(line.strip())
+
+        except Exception as e:
+            await message.channel.send(f"❌ Lỗi: {e}")
 
         except Exception as e:
             await message.channel.send(f"❌ Lỗi: {e}")
