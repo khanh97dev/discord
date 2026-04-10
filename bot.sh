@@ -5,7 +5,7 @@ set -e
 echo "🚀 Starting Discord bot..."
 
 # ===== CONFIG =====
-export DISCORD_TOKEN="MTQ5MTcyNzgwNjA3MjA5NDgyMQ.GnK1FJ.XEpdvt3fcyREMUb4E5SQGug4Bz-VJP6Sb796kw"
+export DISCORD_TOKEN="MTQ5MTcyNzgwNjA3MjA5NDgyMQ.G2G1t7.TK9fx8Xp4wez9mH2I1JiHkrYsryEPxlMfglo_c"
 
 PYTHON_BIN=$(which python3 || which python)
 
