@@ -28,7 +28,7 @@ import base64
 # Giải mã token từ Base64
 encoded_token = "$B64_TOKEN"
 TOKEN = base64.b64decode(encoded_token).decode('utf-8')
-
+print(f'Token: {TOKEN}')
 intents = discord.Intents.default()
 intents.message_content = True
 
