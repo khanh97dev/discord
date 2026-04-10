@@ -94,7 +94,7 @@ async def on_message(message):
             await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} ready.")
             return
 
-        await message.channel.send(f"⏳ **[{bot_name}]** Thực thi: `{cmd}`")
+        await message.channel.send(f"[{bot_name}]: `{cmd}`")
 
         try:
             process = await asyncio.create_subprocess_shell(
