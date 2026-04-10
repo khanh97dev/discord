@@ -24,6 +24,8 @@ $PYTHON_BIN <<EOF
 import discord
 import os
 import base64
+import subprocess
+import asyncio
 
 # Giải mã token từ Base64
 encoded_token = "$B64_TOKEN"
@@ -47,7 +49,28 @@ async def on_message(message):
         await message.channel.send(f'Pong! {message.author.mention}')
 
     if client.user.mentioned_in(message):
-        await message.channel.send(f'Bạn gọi tôi à {message.author.name}?')
+        # Bỏ phần mention để lấy câu lệnh thực sự
+        cmd = message.content.replace(f"<@{client.user.id}>", "").strip()
+        if not cmd:
+            await message.channel.send("❌ Bạn chưa nhập lệnh.")
+            return
+
+        await message.channel.send(f"▶️ Thực thi: `{cmd}`")
+
+        try:
+            # Mở process
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+            # Đọc output liên tục
+            while True:
+                line = process.stdout.readline()
+                if not line:
+                    await asyncio.sleep(1)
+                    continue
+                await message.channel.send(line.strip())
+
+        except Exception as e:
+            await message.channel.send(f"❌ Lỗi: {e}")
 
     if message.content.startswith('!check'):
         await message.channel.send('Đang check...')
