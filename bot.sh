@@ -3,7 +3,7 @@
 set -e
 
 # --- CONFIG ---
-VERSION="1.0.6"
+VERSION="1.0.7"
 DEFAULT_NAME="server01"
 
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
@@ -44,7 +44,7 @@ import re
 
 token_env = os.environ.get("B64_TOKEN", "")
 bot_name = os.environ.get("BOT_NAME", "server01")
-version = "1.0.6"
+version = "1.0.7"
 TIMEOUT_SECONDS = 30 
 
 try:
@@ -57,45 +57,25 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+# Hàng đợi xử lý lệnh
+msg_queue = asyncio.Queue()
+
 def format_output(name, title, text):
     if not text: return ""
-    # Giới hạn 1800 ký tự để chừa chỗ cho prefix/suffix
     max_len = 1800
     is_truncated = len(text) > max_len
     content = text[:max_len]
-    
     msg = f"[{name}] {title}:\n```\n{content}"
     if is_truncated:
         msg += "\n... (truncated)"
-    msg += "\n```" # Luôn đảm bảo đóng code block
+    msg += "\n```"
     return msg
 
-@client.event
-async def on_ready():
-    print(f'--- INFO ---')
-    print(f'Version: {version}')
-    print(f'Server Name: {bot_name}')
-    print(f'------------')
-
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
-
-    if client.user.mentioned_in(message):
-        clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
+async def worker():
+    """Hàm xử lý lệnh lần lượt từ hàng đợi"""
+    while True:
+        message, cmd = await msg_queue.get()
         
-        if not clean_content.startswith(bot_name):
-            return
-
-        cmd = clean_content[len(bot_name):].strip()
-        
-        if not cmd:
-            await message.channel.send(f"ℹ️ [{bot_name}] v{version} ready.")
-            return
-
-        await message.channel.send(f"[{bot_name}]: `{cmd}`")
-
         try:
             process = await asyncio.create_subprocess_shell(
                 cmd,
@@ -118,9 +98,40 @@ async def on_message(message):
                 except:
                     pass
                 await message.channel.send(f"🛑 [{bot_name}] Timeout ({TIMEOUT_SECONDS}s).")
-
         except Exception as e:
             await message.channel.send(f"❌ [{bot_name}] Lỗi: {e}")
+        
+        msg_queue.task_done()
+
+@client.event
+async def on_ready():
+    print(f'--- INFO ---')
+    print(f'Version: {version}')
+    print(f'Server Name: {bot_name}')
+    print(f'------------')
+    # Khởi chạy worker xử lý hàng đợi
+    asyncio.create_task(worker())
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    if client.user.mentioned_in(message):
+        clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
+        
+        if not clean_content.startswith(bot_name):
+            return
+
+        cmd = clean_content[len(bot_name):].strip()
+        
+        if not cmd:
+            await message.channel.send(f"ℹ️ [{bot_name}] v{version} ready.")
+            return
+
+        # Phản hồi ngay lập tức và đưa vào hàng đợi
+        await message.channel.send(f"⏳ [{bot_name}] Đã nhận lệnh: `{cmd}`")
+        await msg_queue.put((message, cmd))
 
 client.run(TOKEN)
 EOF
