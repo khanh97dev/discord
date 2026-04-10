@@ -64,7 +64,7 @@ def format_output(name, title, text):
     is_truncated = len(text) > max_len
     content = text[:max_len]
     
-    msg = f"**[{name}] {title}:**\n```\n{content}"
+    msg = f"[{name}] {title}:\n```\n{content}"
     if is_truncated:
         msg += "\n... (truncated)"
     msg += "\n```" # Luôn đảm bảo đóng code block
@@ -91,7 +91,7 @@ async def on_message(message):
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
-            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} ready.")
+            await message.channel.send(f"ℹ️ [{bot_name}] v{version} ready.")
             return
 
         await message.channel.send(f"[{bot_name}]: `{cmd}`")
@@ -117,10 +117,10 @@ async def on_message(message):
                     process.terminate()
                 except:
                     pass
-                await message.channel.send(f"🛑 **[{bot_name}]** Timeout ({TIMEOUT_SECONDS}s).")
+                await message.channel.send(f"🛑 [{bot_name}] Timeout ({TIMEOUT_SECONDS}s).")
 
         except Exception as e:
-            await message.channel.send(f"❌ **[{bot_name}]** Lỗi: {e}")
+            await message.channel.send(f"❌ [{bot_name}] Lỗi: {e}")
 
 client.run(TOKEN)
 EOF
