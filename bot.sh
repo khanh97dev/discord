@@ -3,18 +3,26 @@
 set -e
 
 # --- CONFIG ---
-VERSION="1.0.4"
+VERSION="1.0.5"
 DEFAULT_NAME="server01"
 
-# Đảm bảo lấy NAME từ môi trường
-[ -z "$NAME" ] && BOT_NAME=$DEFAULT_NAME || BOT_NAME=$NAME
+# Thủ thuật bóc tách NAME từ lệnh curl nếu có (ví dụ: bot.sh?NAME=myserver)
+# Nó sẽ tìm trong các tiến trình đang chạy có chuỗi bot.sh?NAME=...
+URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
+
+if [ -n "$URL_PARAM" ]; then
+    export BOT_NAME="$URL_PARAM"
+elif [ -n "$NAME" ]; then
+    export BOT_NAME="$NAME"
+else
+    export BOT_NAME="$DEFAULT_NAME"
+fi
 
 echo "------------------------------------------"
 echo "🚀 Discord Bot Version: $VERSION"
 echo "🖥️  Target Server: $BOT_NAME"
 echo "------------------------------------------"
 
-export BOT_NAME
 export B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
 
 PYTHON_BIN=$(which python3 || which python)
@@ -29,7 +37,8 @@ $PYTHON_BIN -m pip install --quiet discord.py requests
 
 echo "▶️ Running bot..."
 
-$PYTHON_BIN <<EOF
+# QUAN TRỌNG: Dùng 'EOF' (có dấu nháy) để Bash không can thiệp vào code Python bên trong
+$PYTHON_BIN << 'EOF'
 import discord
 import os
 import base64
@@ -37,8 +46,8 @@ import asyncio
 import re
 
 token_env = os.environ.get("B64_TOKEN", "")
-bot_name = os.environ.get("BOT_NAME", "$DEFAULT_NAME")
-version = "$VERSION"
+bot_name = os.environ.get("BOT_NAME", "server01")
+version = "1.0.5"
 TIMEOUT_SECONDS = 30 
 
 try:
@@ -65,25 +74,25 @@ async def on_message(message):
         return
 
     if client.user.mentioned_in(message):
-        # Regex để xóa sạch phần @mention bất kể định dạng <@ID>, <@!ID>, <@&ID>
+        # Loại bỏ các tag ID
         clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
         
-        # Kiểm tra xem có bắt đầu bằng đúng bot_name không
+        # Kiểm tra khớp name
         if not clean_content.startswith(bot_name):
             return
 
-        # Tách lệnh (Ví dụ: "myserver ls" -> "ls")
+        # Lấy phần lệnh sau name
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
-            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} sẵn sàng. Nhập: `@Bot {bot_name} <lệnh>`")
+            await message.channel.send(f"ℹ️ **[{bot_name}]** v{version} ready. Gõ: `@Bot {bot_name} <lệnh>`")
             return
 
         if cmd == "version":
-            await message.channel.send(f"🤖 **[{bot_name}]** đang chạy phiên bản: \`{version}\`")
+            await message.channel.send(f"🤖 **[{bot_name}]** v{version}")
             return
 
-        await message.channel.send(f"⏳ **[{bot_name}]** Thực thi: \`{cmd}\`")
+        await message.channel.send(f"⏳ **[{bot_name}]** Chạy: \`{cmd}\`")
 
         try:
             process = await asyncio.create_subprocess_shell(
@@ -96,16 +105,20 @@ async def on_message(message):
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
                 
                 if stdout:
-                    await message.channel.send(f"**[{bot_name}] STDOUT:**\n\`\`\`\n{stdout.decode()[:1900]}\n\`\`\`")
+                    output = stdout.decode().strip()
+                    if output:
+                        await message.channel.send(f"**[{bot_name}]**:\n\`\`\`\n{output[:1900]}\n\`\`\`")
                 if stderr:
-                    await message.channel.send(f"❌ **[{bot_name}] ERR:**\n\`\`\`\n{stderr.decode()[:1900]}\n\`\`\`")
+                    error_out = stderr.decode().strip()
+                    if error_out:
+                        await message.channel.send(f"❌ **[{bot_name}] Lỗi:**\n\`\`\`\n{error_out[:1900]}\n\`\`\`")
                 
             except asyncio.TimeoutError:
                 try:
                     process.terminate()
                 except:
                     pass
-                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị hủy (Quá {TIMEOUT_SECONDS}s).")
+                await message.channel.send(f"🛑 **[{bot_name}]** Timeout ({TIMEOUT_SECONDS}s).")
 
         except Exception as e:
             await message.channel.send(f"❌ **[{bot_name}]** Lỗi: {e}")
