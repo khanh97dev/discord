@@ -20,7 +20,7 @@ $PYTHON_BIN -m pip install --quiet discord requests
 
 echo "▶️ Running bot..."
 
-$PYTHON_BIN <<EOF
+$PYTHON_BIN <<'EOF'
 import discord
 import os
 import base64
