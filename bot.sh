@@ -1,4 +1,5 @@
 #!/bin/bash
+echo 'usage: export NAME=myserver && curl -s "https://raw.githubusercontent.com/khanh97dev/discord/main/bot.sh" | bash'
 
 set -e
 
