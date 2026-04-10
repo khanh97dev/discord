@@ -6,7 +6,7 @@ echo "🚀 Starting Discord bot..."
 
 # ===== CONFIG =====
 # Token đã được mã hóa Base64
-B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVNkNEd6RXROQy5US29meDhYcHdlei9tSDJJMUppSWhyWXNyeUVQeGxNZmdsb19j"
+B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVEuR2NMcWw5LkJsN3VRZjZXOFFVRVgybHdLSDZDSERSNlRhaXFUTS1QMm13eWJr"
 
 PYTHON_BIN=$(which python3 || which python)
 
