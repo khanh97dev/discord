@@ -6,8 +6,7 @@ set -e
 VERSION="1.0.5"
 DEFAULT_NAME="server01"
 
-# Thủ thuật bóc tách NAME từ lệnh curl nếu có (ví dụ: bot.sh?NAME=myserver)
-# Nó sẽ tìm trong các tiến trình đang chạy có chuỗi bot.sh?NAME=...
+# Tách NAME từ tham số URL nếu chạy kiểu bash -c "$(curl ... ?NAME=myserver)"
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
 
 if [ -n "$URL_PARAM" ]; then
@@ -37,7 +36,7 @@ $PYTHON_BIN -m pip install --quiet discord.py requests
 
 echo "▶️ Running bot..."
 
-# QUAN TRỌNG: Dùng 'EOF' (có dấu nháy) để Bash không can thiệp vào code Python bên trong
+# SỬA LỖI TẠI ĐÂY: Dùng 'EOF' để tránh lỗi syntax bash
 $PYTHON_BIN << 'EOF'
 import discord
 import os
@@ -74,14 +73,14 @@ async def on_message(message):
         return
 
     if client.user.mentioned_in(message):
-        # Loại bỏ các tag ID
+        # Loại bỏ các tag mention
         clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
         
-        # Kiểm tra khớp name
+        # Kiểm tra đúng tên server mới chạy
         if not clean_content.startswith(bot_name):
             return
 
-        # Lấy phần lệnh sau name
+        # Tách lệnh
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
@@ -89,10 +88,10 @@ async def on_message(message):
             return
 
         if cmd == "version":
-            await message.channel.send(f"🤖 **[{bot_name}]** v{version}")
+            await message.channel.send(f"🤖 **[{bot_name}]** Phiên bản hiện tại: \`{version}\`")
             return
 
-        await message.channel.send(f"⏳ **[{bot_name}]** Chạy: \`{cmd}\`")
+        await message.channel.send(f"⏳ **[{bot_name}]** Thực thi: \`{cmd}\`")
 
         try:
             process = await asyncio.create_subprocess_shell(
@@ -105,23 +104,21 @@ async def on_message(message):
                 stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
                 
                 if stdout:
-                    output = stdout.decode().strip()
-                    if output:
-                        await message.channel.send(f"**[{bot_name}]**:\n\`\`\`\n{output[:1900]}\n\`\`\`")
+                    out = stdout.decode().strip()
+                    if out: await message.channel.send(f"**[{bot_name}]**:\n\`\`\`\n{out[:1900]}\n\`\`\`")
                 if stderr:
-                    error_out = stderr.decode().strip()
-                    if error_out:
-                        await message.channel.send(f"❌ **[{bot_name}] Lỗi:**\n\`\`\`\n{error_out[:1900]}\n\`\`\`")
+                    err = stderr.decode().strip()
+                    if err: await message.channel.send(f"❌ **[{bot_name}] Lỗi:**\n\`\`\`\n{err[:1900]}\n\`\`\`")
                 
             except asyncio.TimeoutError:
                 try:
                     process.terminate()
                 except:
                     pass
-                await message.channel.send(f"🛑 **[{bot_name}]** Timeout ({TIMEOUT_SECONDS}s).")
+                await message.channel.send(f"🛑 **[{bot_name}]** Lệnh bị dừng (Timeout {TIMEOUT_SECONDS}s).")
 
         except Exception as e:
-            await message.channel.send(f"❌ **[{bot_name}]** Lỗi: {e}")
+            await message.channel.send(f"❌ **[{bot_name}]** Lỗi hệ thống: {e}")
 
 client.run(TOKEN)
 EOF
