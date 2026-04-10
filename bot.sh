@@ -5,7 +5,8 @@ set -e
 echo "🚀 Starting Discord bot..."
 
 # ===== CONFIG =====
-export DISCORD_TOKEN="MTQ5MTcyNzgwNjA3MjA5NDgyMQ.G2G1t7.TK9fx8Xp4wez9mH2I1JiHkrYsryEPxlMfglo_c"
+# Token đã được mã hóa Base64
+B64_TOKEN="TVRRNU1UY3lOemd3TmpBM01qQTVORGd5TVNkNEd6RXROQy5US29meDhYcHdlei9tSDJJMUppSWhyWXNyeUVQeGxNZmdsb19j"
 
 PYTHON_BIN=$(which python3 || which python)
 
@@ -21,10 +22,12 @@ echo "▶️ Running bot..."
 
 $PYTHON_BIN <<EOF
 import discord
-import requests
 import os
+import base64
 
-TOKEN = os.getenv("DISCORD_TOKEN")
+# Giải mã token từ Base64
+encoded_token = "$B64_TOKEN"
+TOKEN = base64.b64decode(encoded_token).decode('utf-8')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -34,22 +37,17 @@ client = discord.Client(intents=intents)
 @client.event
 async def on_ready():
     print(f'Bot {client.user} đã sẵn sàng!')
-    print(f'ID: {client.user.id}')
 
 @client.event
 async def on_message(message):
     if message.author == client.user:
         return
 
-    print(f"[{message.channel}] {message.author}: {message.content}")
-
     if message.content.startswith('!ping'):
         await message.channel.send(f'Pong! {message.author.mention}')
 
     if client.user.mentioned_in(message):
-        await message.channel.send(
-            f'Bạn gọi tôi à {message.author.name}?'
-        )
+        await message.channel.send(f'Bạn gọi tôi à {message.author.name}?')
 
     if message.content.startswith('!check'):
         await message.channel.send('Đang check...')
