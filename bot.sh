@@ -104,36 +104,46 @@ async def worker():
         
         msg_queue.task_done()
 
-@client.event
-async def on_ready():
-    print(f'--- INFO ---')
-    print(f'Version: {version}')
-    print(f'Server Name: {bot_name}')
-    print(f'------------')
-    # Khởi chạy worker xử lý hàng đợi
-    asyncio.create_task(worker())
-
-@client.event
-async def on_message(message):
+async def handle_command(message):
+    """Hàm dùng chung để xử lý logic lệnh từ tin nhắn mới hoặc tin nhắn edit"""
     if message.author == client.user:
         return
 
     if client.user.mentioned_in(message):
+        # Loại bỏ các tag @bot
         clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
         
+        # Kiểm tra xem có bắt đầu bằng bot_name không
         if not clean_content.startswith(bot_name):
             return
 
+        # Lấy phần lệnh phía sau bot_name
         cmd = clean_content[len(bot_name):].strip()
         
         if not cmd:
             await message.channel.send(f"[{bot_name}] v{version} ready.")
             return
 
-        # Phản hồi ngay lập tức và đưa vào hàng đợi
-        print(f"Received command: {cmd}")
+        # Log và đưa vào hàng đợi xử lý
+        print(f"Received command (from {'edit' if message.edited_at else 'new'}): {cmd}")
         await message.channel.send(f"[{bot_name}] Đã nhận lệnh: `{cmd}`")
         await msg_queue.put((message, cmd))
 
+@client.event
+async def on_message(message):
+    await handle_command(message)
+
+@client.event
+async def on_message_edit(before, after):
+    # Chúng ta truyền 'after' (tin nhắn sau khi sửa) vào hàm xử lý
+    await handle_command(after)
+
+@client.event
+async def on_ready():
+    print(f'--- INFO ---')
+    print(f'Version: {version}')
+    print(f'Server Name: {bot_name}')
+    print(f'------------')
+    asyncio.create_task(worker())
 client.run(TOKEN)
 EOF
