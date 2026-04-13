@@ -5,7 +5,7 @@ set -e
 
 # --- CONFIG DUY NHẤT TẠI ĐÂY ---
 export APP_VERSION="1.1.0"
-DEFAULT_NAME="server01"
+DEFAULT_NAME="server"
 # -------------------------------
 
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
