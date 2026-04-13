@@ -4,7 +4,7 @@ echo 'usage: export NAME=myserver && curl -s "https://raw.githubusercontent.com/
 set -e
 
 # --- CONFIG DUY NHẤT TẠI ĐÂY ---
-export APP_VERSION="1.0.8"
+export APP_VERSION="1.1.0"
 DEFAULT_NAME="server01"
 # -------------------------------
 
