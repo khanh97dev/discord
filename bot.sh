@@ -4,8 +4,8 @@ echo 'usage: export NAME=myserver && curl -s "https://raw.githubusercontent.com/
 set -e
 
 # --- CONFIG ---
-VERSION="1.0.8"
-DEFAULT_NAME="server01"
+VERSION="1.0.9"
+DEFAULT_NAME="server"
 
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
 
