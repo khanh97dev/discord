@@ -3,9 +3,10 @@ echo 'usage: export NAME=myserver && curl -s "https://raw.githubusercontent.com/
 
 set -e
 
-# --- CONFIG ---
-VERSION="1.0.9"
-DEFAULT_NAME="server"
+# --- CONFIG DUY NHẤT TẠI ĐÂY ---
+export APP_VERSION="1.0.8"
+DEFAULT_NAME="server01"
+# -------------------------------
 
 URL_PARAM=$(ps -ef | grep -v grep | grep "bot.sh?NAME=" | sed 's/.*NAME=\([^"& ]*\).*/\1/' | head -n 1)
 
@@ -18,7 +19,7 @@ else
 fi
 
 echo "------------------------------------------"
-echo "🚀 Discord Bot Version: $VERSION"
+echo "🚀 Discord Bot Version: $APP_VERSION"
 echo "🖥️  Target Server: $BOT_NAME"
 echo "------------------------------------------"
 
@@ -43,91 +44,75 @@ import base64
 import asyncio
 import re
 
-token_env = os.environ.get("B64_TOKEN", "")
-bot_name = os.environ.get("BOT_NAME", "server01")
-version = "1.0.7"
-TIMEOUT_SECONDS = 30 
-
-try:
-    TOKEN = base64.b64decode(token_env).decode('utf-8')
-except Exception as e:
-    print(f"❌ Lỗi giải mã Token: {e}")
-    exit(1)
+# Gom toàn bộ cấu hình từ biến môi trường vào 1 chỗ
+CONFIG = {
+    "name": os.environ.get("BOT_NAME", "unknown"),
+    "version": os.environ.get("APP_VERSION", "0.0.0"),
+    "timeout": 30,
+    "token": base64.b64decode(os.environ.get("B64_TOKEN", "")).decode('utf-8')
+}
 
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
-
-# Hàng đợi xử lý lệnh
 msg_queue = asyncio.Queue()
 
 def format_output(name, title, text):
     if not text: return ""
     max_len = 1800
-    is_truncated = len(text) > max_len
     content = text[:max_len]
     msg = f"[{name}] {title}:\n```\n{content}"
-    if is_truncated:
-        msg += "\n... (truncated)"
+    if len(text) > max_len: msg += "\n... (truncated)"
     msg += "\n```"
     return msg
 
+async def handle_command(message):
+    if message.author == client.user:
+        return
+
+    if client.user.mentioned_in(message):
+        clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
+        
+        if not clean_content.startswith(CONFIG["name"]):
+            return
+
+        cmd = clean_content[len(CONFIG["name"]):].strip()
+        
+        if not cmd:
+            await message.channel.send(f"[{CONFIG['name']}] v{CONFIG['version']} ready.")
+            return
+
+        print(f"Received command: {cmd}")
+        await message.channel.send(f"[{CONFIG['name']}] Đã nhận lệnh: `{cmd}`")
+        await msg_queue.put((message, cmd))
+
 async def worker():
-    """Hàm xử lý lệnh lần lượt từ hàng đợi"""
     while True:
         message, cmd = await msg_queue.get()
-        
         try:
             process = await asyncio.create_subprocess_shell(
                 cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-
             try:
-                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT_SECONDS)
-                
-                out_msg = format_output(bot_name, "STDOUT", stdout.decode().strip())
-                err_msg = format_output(bot_name, "ERR", stderr.decode().strip())
-
+                stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=CONFIG["timeout"])
+                out_msg = format_output(CONFIG["name"], "STDOUT", stdout.decode().strip())
+                err_msg = format_output(CONFIG["name"], "ERR", stderr.decode().strip())
                 if out_msg: await message.channel.send(out_msg)
                 if err_msg: await message.channel.send(err_msg)
-                
             except asyncio.TimeoutError:
-                try:
-                    process.terminate()
-                except:
-                    pass
-                await message.channel.send(f"🛑 [{bot_name}] Timeout ({TIMEOUT_SECONDS}s).")
+                try: process.terminate()
+                except: pass
+                await message.channel.send(f"🛑 [{CONFIG['name']}] Timeout ({CONFIG['timeout']}s).")
         except Exception as e:
-            await message.channel.send(f"❌ [{bot_name}] Lỗi: {e}")
-        
+            await message.channel.send(f"❌ [{CONFIG['name']}] Lỗi: {e}")
         msg_queue.task_done()
 
-async def handle_command(message):
-    """Hàm dùng chung để xử lý logic lệnh từ tin nhắn mới hoặc tin nhắn edit"""
-    if message.author == client.user:
-        return
-
-    if client.user.mentioned_in(message):
-        # Loại bỏ các tag @bot
-        clean_content = re.sub(r'<@[!&]?\d+>', '', message.content).strip()
-        
-        # Kiểm tra xem có bắt đầu bằng bot_name không
-        if not clean_content.startswith(bot_name):
-            return
-
-        # Lấy phần lệnh phía sau bot_name
-        cmd = clean_content[len(bot_name):].strip()
-        
-        if not cmd:
-            await message.channel.send(f"[{bot_name}] v{version} ready.")
-            return
-
-        # Log và đưa vào hàng đợi xử lý
-        print(f"Received command (from {'edit' if message.edited_at else 'new'}): {cmd}")
-        await message.channel.send(f"[{bot_name}] Đã nhận lệnh: `{cmd}`")
-        await msg_queue.put((message, cmd))
+@client.event
+async def on_ready():
+    print(f"--- INFO ---\nVersion: {CONFIG['version']}\nServer Name: {CONFIG['name']}\n------------")
+    asyncio.create_task(worker())
 
 @client.event
 async def on_message(message):
@@ -135,15 +120,7 @@ async def on_message(message):
 
 @client.event
 async def on_message_edit(before, after):
-    # Chúng ta truyền 'after' (tin nhắn sau khi sửa) vào hàm xử lý
     await handle_command(after)
 
-@client.event
-async def on_ready():
-    print(f'--- INFO ---')
-    print(f'Version: {version}')
-    print(f'Server Name: {bot_name}')
-    print(f'------------')
-    asyncio.create_task(worker())
-client.run(TOKEN)
+client.run(CONFIG["token"])
 EOF
