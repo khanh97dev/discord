@@ -4,7 +4,7 @@ echo 'usage: export NAME=myserver && curl -s "https://raw.githubusercontent.com/
 set -e
 
 # --- CONFIG DUY NHẤT TẠI ĐÂY ---
-export APP_VERSION="1.1.0"
+export APP_VERSION="1.1.1"
 DEFAULT_NAME="server"
 # -------------------------------
 
@@ -54,6 +54,7 @@ CONFIG = {
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.messages = True
 client = discord.Client(intents=intents)
 msg_queue = asyncio.Queue()
 
